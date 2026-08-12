@@ -3,21 +3,22 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import Cocoa
-import MASShortcut
-import Sparkle
 import Defaults
-import Preferences
-
+import KeyboardShortcuts
+import Settings
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
-        MASShortcutBinder.shared()?.bindShortcut(withDefaultsKey: UserDefaultKeys.Shortcuts.ToggleMenuItems) { () in
+        KeyboardShortcuts.onKeyUp(for: .toggleMenuItems) {
             DozerIcons.shared.toggle()
         }
 
+        // Keep the "a shortcut exists" flag in sync even if Settings is never opened
+        Defaults[.isShortcutSet] = KeyboardShortcuts.getShortcut(for: .toggleMenuItems) != nil
+
         // Initalize Dozer Icons
         _ = DozerIcons.shared
-        
+
         // If enabled hide menu bar icons at launch
         DozerIcons.shared.hideAtLaunch()
 
@@ -30,13 +31,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
-    lazy var preferences: [PreferencePane] = [
+    lazy var settingsPanes: [SettingsPane] = [
         Dozer(),
         General()
     ]
 
-    lazy var preferencesWindowController = PreferencesWindowController(
-        preferencePanes: preferences,
+    lazy var settingsWindowController = SettingsWindowController(
+        panes: settingsPanes,
         style: .toolbarItems,
         animated: true,
         hidesToolbarForSingleItem: true

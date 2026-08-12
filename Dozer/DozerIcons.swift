@@ -107,7 +107,7 @@ public final class DozerIcons {
             Defaults[.showIconAndMenuEnabled] = self.enableIconAndMenu
             if self.enableIconAndMenu == false {
                 _ = DozerIcons.toggleDockIcon(showIcon: false)
-                appDelegate.preferencesWindowController.show(preferencePane: .general)
+                appDelegate.settingsWindowController.show(pane: .general)
             }
         }
     }
@@ -143,11 +143,8 @@ public final class DozerIcons {
 
     public func hideAtLaunch() {
         if hideStatusBarIconsAtLaunch {
-            if #available(macOS 11.0, *) {
-                Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                   self.hide()
-                }
-            } else {
+            // Give the menu bar a moment to place the status items before hiding
+            Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
                 self.hide()
             }
         }

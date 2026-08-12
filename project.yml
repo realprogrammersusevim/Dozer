@@ -3,47 +3,55 @@ options:
   usesTabs: false
   tabWidth: 4
   createIntermediateGroups: true
-  xcodeVersion: 10.2.1
-  deploymentTarget: 10.13
+  deploymentTarget:
+    macOS: "13.0"
+packages:
+  Defaults:
+    url: https://github.com/sindresorhus/Defaults
+    from: "9.0.9"
+  Settings:
+    url: https://github.com/sindresorhus/Settings
+    from: "3.1.1"
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    from: "3.0.1"
+  LaunchAtLogin:
+    url: https://github.com/sindresorhus/LaunchAtLogin-Modern
+    from: "1.1.0"
 targets:
   Dozer:
     type: application
     platform: macOS
-    deploymentTarget: 
-      macOS: 10.13
+    deploymentTarget:
+      macOS: "13.0"
     configFiles:
       Debug: Configs/Debug.xcconfig
       Release: Configs/Release.xcconfig
     sources:
       - Dozer
-    postBuildScripts:
-      - path: Scripts/LaunchAtLogin.sh
-        name: Launch At Login
-        runOnlyWhenInstalling: true
-      - path: Scripts/SignFrameworks.sh
-        name: Sign Frameworks
-        runOnlyWhenInstalling: true
-        runOnlyWhenInstalling: true
-      - script: /usr/local/bin/swiftgen
-        name: Generate files using SwiftGen
-      - path: Scripts/Swiftlint.sh
-        name: Swiftlint
     settings:
       base:
         CODE_SIGN_ENTITLEMENTS: Dozer/Other/Dozer.entitlements
         PRODUCT_BUNDLE_IDENTIFIER: "com.mortennn.Dozer"
-        SWIFT_VERSION: 5
+        SWIFT_VERSION: 5.0
         DEBUG_INFORMATION_FORMAT: "dwarf-with-dsym"
         ENABLE_HARDENED_RUNTIME: true
-        MACOSX_DEPLOYMENT_TARGET: 10.13
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
         VERSIONING_SYSTEM: apple-generic
-        CURRENT_PROJECT_VERSION: 30
+        CURRENT_PROJECT_VERSION: 31
+        # Build a universal binary so the app runs natively on Apple Silicon
+        # and Intel. On Apple Silicon this yields a native arm64 slice.
+        ARCHS: "$(ARCHS_STANDARD)"
+        ONLY_ACTIVE_ARCH: false
+        # Local build: ad-hoc sign. Set to a Developer ID identity to distribute.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: ""
     dependencies:
-      - carthage: LaunchAtLogin
-      - carthage: Defaults
-      - carthage: Preferences
-      - carthage: MASShortcut
-      - carthage: Sparkle
+      - package: Defaults
+      - package: Settings
+      - package: KeyboardShortcuts
+      - package: LaunchAtLogin
 schemes:
   Dozer:
     build:

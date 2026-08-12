@@ -3,23 +3,19 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import Cocoa
-import Preferences
-import MASShortcut
-import LaunchAtLogin
-import Sparkle
 import Defaults
+import KeyboardShortcuts
+import LaunchAtLogin
+import Settings
 
-final class General: NSViewController, PreferencePane {
-    let preferencePaneIdentifier = Preferences.PaneIdentifier.general
-    let preferencePaneTitle: String = "General"
+final class General: NSViewController, SettingsPane {
+    let paneIdentifier = Settings.PaneIdentifier.general
+    let paneTitle: String = "General"
     let toolbarItemIcon = NSImage(named: NSImage.preferencesGeneralName)!
 
     override var nibName: NSNib.Name? { "General" }
 
-    fileprivate var userShortCut: MASShortcut!
-
     @IBOutlet private var LaunchAtLoginCheckbox: NSButton!
-    @IBOutlet private var CheckForUpdatesCheckbox: NSButton!
     @IBOutlet private var HideStatusBarIconsAtLaunchCheckbox: NSButton!
     @IBOutlet private var HideStatusBarIconsAfterDelayCheckbox: NSButton!
     @IBOutlet private var HideStatusBarIconsSecondsPopUpButton: NSPopUpButton!
@@ -28,7 +24,8 @@ final class General: NSViewController, PreferencePane {
     @IBOutlet private var ShowIconAndMenuCheckbox: NSButton!
     @IBOutlet private var FontSizePopUpButton: NSPopUpButton!
     @IBOutlet private var ButtonPaddingPopUpButton: NSPopUpButton!
-    @IBOutlet private var ToggleMenuItemsView: MASShortcutView!
+    /// Container from the XIB that hosts the shortcut recorder
+    @IBOutlet private var ToggleMenuItemsView: NSView!
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,11 +33,6 @@ final class General: NSViewController, PreferencePane {
         LaunchAtLoginCheckbox.focusRingType = .none
 
         LaunchAtLoginCheckbox.isChecked = LaunchAtLogin.isEnabled
-        if SUUpdater.shared() != nil {
-            CheckForUpdatesCheckbox.isChecked = SUUpdater.shared()!.automaticallyChecksForUpdates
-        } else {
-            CheckForUpdatesCheckbox.isChecked = false
-        }
 
         HideStatusBarIconsAtLaunchCheckbox.isChecked = Defaults[.hideAtLaunchEnabled]
         HideStatusBarIconsAfterDelayCheckbox.isChecked = Defaults[.hideAfterDelayEnabled]
@@ -51,26 +43,28 @@ final class General: NSViewController, PreferencePane {
         FontSizePopUpButton.selectItem(withTitle: "\(Int(Defaults[.iconSize])) px")
         ButtonPaddingPopUpButton.selectItem(withTitle: "\(Int(Defaults[.buttonPadding])) px")
 
-        ToggleMenuItemsView.associatedUserDefaultsKey = UserDefaultKeys.Shortcuts.ToggleMenuItems
-        view.addSubview(ToggleMenuItemsView)
+        setUpShortcutRecorder()
         configureEnabledNoIconCheckbox()
+    }
 
-        ToggleMenuItemsView.shortcutValueChange = { _ -> Void in
-            self.userShortCut = self.ToggleMenuItemsView.shortcutValue
-            self.configureEnabledNoIconCheckbox()
+    /// Embeds a `KeyboardShortcuts` recorder into the placeholder view from the XIB.
+    private func setUpShortcutRecorder() {
+        let recorder = KeyboardShortcuts.RecorderCocoa(for: .toggleMenuItems) { [weak self] _ in
+            self?.configureEnabledNoIconCheckbox()
         }
+        recorder.translatesAutoresizingMaskIntoConstraints = false
+        ToggleMenuItemsView.addSubview(recorder)
+        NSLayoutConstraint.activate([
+            recorder.leadingAnchor.constraint(equalTo: ToggleMenuItemsView.leadingAnchor),
+            recorder.trailingAnchor.constraint(equalTo: ToggleMenuItemsView.trailingAnchor),
+            recorder.centerYAnchor.constraint(equalTo: ToggleMenuItemsView.centerYAnchor)
+        ])
     }
 
     @IBAction private func launchAtLoginClicked(_ sender: NSButton) {
         LaunchAtLogin.isEnabled = (sender.state == .on)
-    }
-
-    @IBAction private func automaticallyCheckForUpdatesClicked(_ sender: NSButton) {
-        guard SUUpdater.shared() != nil else {
-            CheckForUpdatesCheckbox.isChecked = false
-            return
-        }
-        SUUpdater.shared()!.automaticallyChecksForUpdates = CheckForUpdatesCheckbox.isChecked
+        // The system can refuse the request, so reflect the real state back
+        LaunchAtLoginCheckbox.isChecked = LaunchAtLogin.isEnabled
     }
 
     @IBAction private func hideStatusBarIconsAtLaunchClicked(_ sender: NSButton) {
@@ -108,12 +102,8 @@ final class General: NSViewController, PreferencePane {
 
     /// disables the noIcon-checkbox if no shortcut is set and keeps track whether shortcut is set
     private func configureEnabledNoIconCheckbox() {
-        if ToggleMenuItemsView.shortcutValue == nil {
-            HideBothDozerIconsCheckbox.isEnabled = false
-            Defaults[.isShortcutSet] = false
-        } else {
-            HideBothDozerIconsCheckbox.isEnabled = true
-            Defaults[.isShortcutSet] = true
-        }
+        let hasShortcut = KeyboardShortcuts.getShortcut(for: .toggleMenuItems) != nil
+        HideBothDozerIconsCheckbox.isEnabled = hasShortcut
+        Defaults[.isShortcutSet] = hasShortcut
     }
 }

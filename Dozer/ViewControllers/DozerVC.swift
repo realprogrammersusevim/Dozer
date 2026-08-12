@@ -3,18 +3,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import Cocoa
-import Sparkle
-import Preferences
+import Settings
 
-final class Dozer: NSViewController, PreferencePane {
-    let preferencePaneIdentifier = Preferences.PaneIdentifier.dozer
-    let preferencePaneTitle: String = "Dozer"
+final class Dozer: NSViewController, SettingsPane {
+    let paneIdentifier = Settings.PaneIdentifier.dozer
+    let paneTitle: String = "Dozer"
     let toolbarItemIcon = NSImage(named: "AppIcon")!
 
     override var nibName: NSNib.Name? { "Dozer" }
 
     @IBOutlet private var versionLabel: NSTextField!
-    @IBOutlet private var checkForUpdates: NSButton!
     @IBOutlet private var quit: NSButton!
 
     override func viewDidLoad() {
@@ -24,9 +22,6 @@ final class Dozer: NSViewController, PreferencePane {
             let buildVersionNumber = AppInfo.buildVersionNumber {
             versionLabel.stringValue = "\(releaseVersionNumber) (\(buildVersionNumber))"
         }
-
-        checkForUpdates.target = SUUpdater.shared()!
-        checkForUpdates.action = #selector(SUUpdater.shared()!.checkForUpdates(_:))
 
         quit.action = #selector(NSApp.terminate(_:))
     }

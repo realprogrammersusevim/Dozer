@@ -20,11 +20,13 @@ class HelperstatusIcon {
     init() {
         type = .normal
         statusIcon.length = StatusIconLength.show
-        statusIcon.highlightMode = false
 
         guard let statusIconButton = statusIcon.button else {
             fatalError("helper status item button failed")
         }
+
+        // These items act as spacers, so don't draw a pressed-state highlight
+        (statusIconButton.cell as? NSButtonCell)?.highlightsBy = []
 
         statusIconButton.target = self
         statusIconButton.action = #selector(statusIconClicked(_:))

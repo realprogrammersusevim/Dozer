@@ -3,7 +3,10 @@ build/
 Releases/
 Dozer.xcodeproj/
 Credentials/
-Carthage/
+
+# SwiftPM
+.swiftpm/
+Package.resolved
 
 # Fastlane
 fastlane/
@@ -11,5 +14,4 @@ fastlaneLegacy/
 Gemfile
 Gemfile.lock
 
-# Swiftgen
-Dozer/Other/Generated/
+.DS_Store
