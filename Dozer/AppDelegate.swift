@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Keep the "a shortcut exists" flag in sync even if Settings is never opened
         Defaults[.isShortcutSet] = KeyboardShortcuts.getShortcut(for: .toggleMenuItems) != nil
 
+        // From macOS 27 hiding icons means reading the menu bar layout, which needs Accessibility
+        MenuBarLayout.requestAccessIfNeeded()
+
         // Initalize Dozer Icons
         _ = DozerIcons.shared
 

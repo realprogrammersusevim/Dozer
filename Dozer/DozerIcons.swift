@@ -8,6 +8,8 @@ import Defaults
 public final class DozerIcons {
     static var shared = DozerIcons()
     private var dozerIcons: [HelperstatusIcon] = []
+    /// Normal icons from left to right, as last seen while they were all shown
+    private var normalIconsLeftToRight: [HelperstatusIcon] = []
     private var timerToCheckUserInteraction = Timer()
     private var timerToHideDozerIcons = Timer()
     private var previousApp = NSRunningApplication()
@@ -78,8 +80,8 @@ public final class DozerIcons {
         let normalStatusIconsCount = dozerIcons.filter { $0.type == .normal}.count
         if hideBothDozerIcons && Defaults[.isShortcutSet] {
             if normalStatusIconsCount == 2 {
-                let rightDozerIconXPos = get(dozerIcon: .normalRight).xPositionOnScreen
-                dozerIcons.removeAll { $0.xPositionOnScreen == rightDozerIconXPos }
+                let rightDozerIcon = get(dozerIcon: .normalRight)
+                dozerIcons.removeAll { $0 === rightDozerIcon }
             }
         } else if !hideBothDozerIcons && Defaults[.isShortcutSet] || !Defaults[.isShortcutSet] {
             if normalStatusIconsCount == 1 {
@@ -292,10 +294,6 @@ public final class DozerIcons {
 
     /// Will crash if trying to get ´DozerIcon´ which does not exist in the menu bar
     private func get(dozerIcon: DozerIcon) -> HelperstatusIcon {
-        var normalStatusIconsXPosition: [CGFloat] = []
-        for statusIcon in dozerIcons where statusIcon.type == .normal {
-            normalStatusIconsXPosition.append(statusIcon.xPositionOnScreen)
-        }
         switch dozerIcon {
         case .remove:
             guard let removeStatusIcon = dozerIcons.first(where: { $0.type == .remove }) else {
@@ -303,16 +301,32 @@ public final class DozerIcons {
             }
             return removeStatusIcon
         case .normalLeft:
-            guard let leftStatusIcon = dozerIcons.first(where: { $0.xPositionOnScreen == normalStatusIconsXPosition.min() }) else {
+            guard let leftStatusIcon = normalIconsSortedLeftToRight().first else {
                 fatalError("Failed getting status icon on the left")
             }
             return leftStatusIcon
         case .normalRight:
-            guard let rightStatusIcon = dozerIcons.first(where: { $0.xPositionOnScreen == normalStatusIconsXPosition.max() }) else {
+            guard let rightStatusIcon = normalIconsSortedLeftToRight().last else {
                 fatalError("Failed getting status icon on the right")
             }
             return rightStatusIcon
         }
+    }
+
+    /// Positions are only trustworthy while every normal icon has its normal width: a hidden icon may sit
+    /// behind MenuBarAgent's overflow button, so reuse the order from when they were last all shown.
+    private func normalIconsSortedLeftToRight() -> [HelperstatusIcon] {
+        let normalIcons = dozerIcons.filter { $0.type == .normal }
+        let isCacheCurrent = normalIconsLeftToRight.count == normalIcons.count
+            && normalIcons.allSatisfy { icon in normalIconsLeftToRight.contains { $0 === icon } }
+
+        if !isCacheCurrent || normalIcons.allSatisfy({ $0.isShown }) {
+            let layout = MenuBarLayout.snapshot(identifierPrefix: HelperstatusIcon.identifierPrefix)
+            normalIconsLeftToRight = normalIcons.sorted {
+                $0.xPositionOnScreen(in: layout) < $1.xPositionOnScreen(in: layout)
+            }
+        }
+        return normalIconsLeftToRight
     }
 
     /// hide and show dock icon and thus its menu bar: to free up space to show more menu bar icons
@@ -324,15 +338,20 @@ public final class DozerIcons {
         }
     }
 
-    /// Determines if the user is interacting with the menu bar based on level, owner and y-coordinate
+    /// Determines if the user is interacting with the menu bar: a menu or popover is open right below it
+    ///
+    /// Status items no longer get windows of their own (from macOS 27 MenuBarAgent draws them), so this
+    /// looks for menu and popover windows by level and y-coordinate instead of matching them to an item.
     ///
     /// - Returns: Returns whether the user is interacting with the menu bar or not
     private func isUserInteractingWithStatusBar() -> Bool {
         let windowListType = CGWindowListOption.optionOnScreenOnly
-        guard let windowInfoList = CGWindowListCopyWindowInfo(windowListType, kCGNullWindowID) as NSArray? as? [[String: AnyObject]] else {
+        guard let windowInfoList = CGWindowListCopyWindowInfo(windowListType, kCGNullWindowID) as NSArray? as? [[String: AnyObject]],
+              let screen = NSScreen.screens.first else {
             return false
         }
-        var statusBarAppsWindowInfo: [Window] = []
+        let menuBarHeight = max(NSStatusBar.system.thickness, screen.frame.maxY - screen.visibleFrame.maxY, screen.safeAreaInsets.top)
+        let belowMenuBar = Int(menuBarHeight) - 4...Int(menuBarHeight) + 12
 
         for windowInfo in windowInfoList {
             guard let window = Window(windowInfo),
@@ -341,19 +360,7 @@ public final class DozerIcons {
                     continue
             }
 
-            if window.isStatusIcon {
-                statusBarAppsWindowInfo.append(window)
-            }
-        }
-
-        for windowInfo in windowInfoList {
-            guard let window = Window(windowInfo) else { continue }
-            guard window.isStatusIcon == false else { continue }
-
-            for statusBarApp in statusBarAppsWindowInfo {
-                guard statusBarApp.owner == window.owner else { continue }
-                guard (statusBarApp.y + 22...statusBarApp.y + 30).contains(window.y) else { continue }
-
+            if window.isMenuOrPopover && belowMenuBar.contains(window.y) {
                 return true
             }
         }
@@ -399,11 +406,9 @@ public final class DozerIcons {
             }
         }
 
-        var isStatusIcon: Bool {
-            guard level == 25 && height == 22 else {
-                return false
-            }
-            return true
+        /// Status item popovers use the status window level and menus the pop-up menu level
+        var isMenuOrPopover: Bool {
+            level >= Int(CGWindowLevelForKey(.statusWindow))
         }
     }
 }
